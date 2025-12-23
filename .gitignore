@@ -1,0 +1,12 @@
+# Go binary
+backend/tmp/
+backend/backend    # ビルドされたバイナリ
+
+# OS files
+.DS_Store
+
+# Environment variables
+.env               # DBのパスワードなどが含まれるため絶対に上げない
+
+# Docker
+.docker/
