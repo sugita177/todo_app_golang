@@ -29,6 +29,17 @@ func TestPostgresTodoRepository_Create(t *testing.T) {
 	}
 	defer db.Close()
 
+	// テスト開始前にテーブルを確実に用意する（存在しなければ作成）
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS todos (
+        id SERIAL PRIMARY KEY, 
+        title TEXT NOT NULL, 
+        is_completed BOOLEAN NOT NULL, 
+        created_at TIMESTAMP NOT NULL
+    );`)
+	if err != nil {
+		t.Fatalf("テーブル作成失敗: %v", err)
+	}
+
 	repo := NewTodoRepository(db)
 	ctx := context.Background()
 
