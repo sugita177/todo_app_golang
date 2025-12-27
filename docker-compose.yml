@@ -33,5 +33,16 @@ services:
     volumes:
       - ./backend:/app
 
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules # node_modulesはホスト側と同期させない（高速化・エラー防止）
+    environment:
+      - VITE_API_URL=http://localhost:8080
+
 volumes:
   db-data:
