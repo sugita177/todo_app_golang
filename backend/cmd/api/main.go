@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
-	"os"
+
+	"github.com/rs/cors"
 
 	"todo_app_golang/internal/infrastructure"
 	"todo_app_golang/internal/interface/handler"
@@ -31,12 +31,18 @@ func main() {
 	mux.HandleFunc("POST /todos", todoHandler.CreateTodoHandler)
 	mux.HandleFunc("GET /todos", todoHandler.GetAllTodosHandler)
 
-	// 4. サーバー起動
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+	// CORS 設定
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"http://localhost:5173"}, // フロントエンドのURLを許可
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Content-Type", "Authorization"},
+	})
 
-	fmt.Printf("Server started at :%s\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, mux))
+	// mux を cors ハンドラーで包む
+	handler := c.Handler(mux)
+
+	log.Println("Server starting on :8080...")
+	if err := http.ListenAndServe(":8080", handler); err != nil {
+		log.Fatal(err)
+	}
 }
