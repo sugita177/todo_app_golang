@@ -10,3 +10,6 @@ backend/backend    # ビルドされたバイナリ
 
 # Docker
 .docker/
+
+# env
+.env
