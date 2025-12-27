@@ -9,13 +9,13 @@ import (
 	"todo_app_golang/internal/domain"
 )
 
-// 1. モック用の構造体を定義
+// モック用の構造体を定義
 type mockTodoUseCase struct {
 	// テスト中に「エラーを発生させたい」などの制御ができるようにフィールドを持たせることが多い
 	err error
 }
 
-// 2. Interface を満たすようにメソッドを実装
+// Interface を満たすようにメソッドを実装
 func (m *mockTodoUseCase) CreateTodo(ctx context.Context, title string) error {
 	return m.err // 設定したエラーを返す（成功時は nil）
 }
@@ -25,7 +25,7 @@ func (m *mockTodoUseCase) GetAllTodos(ctx context.Context) ([]*domain.Todo, erro
 }
 
 func TestTodoHandler_CreateTodoHandler_Mock(t *testing.T) {
-	// 3. モックを生成（エラーなしの成功パターン）
+	// モックを生成（エラーなしの成功パターン）
 	mockUC := &mockTodoUseCase{err: nil}
 	h := NewTodoHandler(mockUC)
 
@@ -33,10 +33,10 @@ func TestTodoHandler_CreateTodoHandler_Mock(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/todos", bytes.NewBuffer(jsonBody))
 	rr := httptest.NewRecorder()
 
-	// 4. 実行
+	// 実行
 	h.CreateTodoHandler(rr, req)
 
-	// 5. 検証
+	// 検証
 	if rr.Code != http.StatusCreated {
 		t.Errorf("expected 201, got %v", rr.Code)
 	}
