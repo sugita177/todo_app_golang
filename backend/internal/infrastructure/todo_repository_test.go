@@ -2,10 +2,14 @@ package infrastructure
 
 import (
 	"context"
+	"database/sql"
 	"os"
 	"testing"
 	"time"
 	"todo_app_golang/internal/domain"
+
+	_ "github.com/lib/pq" // Postgresドライバ
+	"github.com/stretchr/testify/assert"
 )
 
 func TestPostgresTodoRepository_Create(t *testing.T) {
@@ -67,4 +71,40 @@ func TestPostgresTodoRepository_Create(t *testing.T) {
 	t.Cleanup(func() {
 		db.Exec("DELETE FROM todos WHERE id = $1", todo.ID)
 	})
+}
+
+func TestTodoRepository_Delete(t *testing.T) {
+	// DSNを環境変数から取得するようにしておくと安全です
+	dsn := os.Getenv("TEST_DB_SOURCE")
+	if dsn == "" {
+		dsn = "host=db port=5432 user=user password=password dbname=todo sslmode=disable"
+	}
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("DB接続失敗: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewTodoRepository(db)
+	ctx := context.Background()
+
+	// テストデータの準備
+	var id int
+	err = db.QueryRow("INSERT INTO todos (title, is_completed, created_at) VALUES ($1, $2, $3) RETURNING id",
+		"Test Delete", false, time.Now()).Scan(&id)
+	if err != nil {
+		t.Fatalf("テストデータ作成失敗: %v", err)
+	}
+
+	// 実行
+	err = repo.Delete(ctx, id)
+
+	// 検証
+	assert.NoError(t, err)
+
+	// DBから消えているか確認
+	var count int
+	db.QueryRow("SELECT count(*) FROM todos WHERE id = $1", id).Scan(&count)
+	assert.Equal(t, 0, count)
 }

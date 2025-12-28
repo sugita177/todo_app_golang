@@ -44,3 +44,9 @@ func (r *postgresTodoRepository) FetchAll(ctx context.Context) ([]*domain.Todo, 
 	}
 	return todos, nil
 }
+
+func (r *postgresTodoRepository) Delete(ctx context.Context, id int) error {
+	query := `DELETE FROM todos WHERE id = $1`
+	_, err := r.db.ExecContext(ctx, query, id) // Exec ではなく ExecContext を使うのがベスト
+	return err
+}
