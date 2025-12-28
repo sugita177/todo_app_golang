@@ -73,11 +73,46 @@ func TestPostgresTodoRepository_Create(t *testing.T) {
 	})
 }
 
+func TestTodoRepository_FetchAll(t *testing.T) {
+	dsn := os.Getenv("TEST_DB_SOURCE")
+	if dsn == "" {
+		dsn = "host=db_test port=5432 user=test_user password=test_password dbname=todo_test sslmode=disable"
+	}
+	db, _ := sql.Open("postgres", dsn)
+	defer db.Close()
+
+	repo := NewTodoRepository(db)
+	ctx := context.Background()
+
+	// 1. テスト前にデータをクリア（他のテストの影響を排除）
+	_, err := db.Exec("DELETE FROM todos")
+	assert.NoError(t, err)
+
+	// 2. テストデータを2件入れる（エラーを必ずチェックする）
+	// 必須カラム（created_at等）がある場合はそれも指定する
+	_, err = db.Exec("INSERT INTO todos (title, is_completed, created_at) VALUES ($1, $2, $3), ($4, $5, $6)",
+		"Task 1", false, time.Now(),
+		"Task 2", true, time.Now(),
+	)
+	if err != nil {
+		t.Fatalf("テストデータの作成に失敗しました: %v", err)
+	}
+
+	// 3. 実行
+	todos, err := repo.FetchAll(ctx)
+
+	// 4. 検証
+	assert.NoError(t, err)
+	// 具体的な件数でチェックするのがベストです
+	assert.Equal(t, 2, len(todos), "取得されたタスク数が一致しません")
+	assert.Equal(t, "Task 1", todos[0].Title)
+}
+
 func TestTodoRepository_Delete(t *testing.T) {
 	// DSNを環境変数から取得するようにしておくと安全です
 	dsn := os.Getenv("TEST_DB_SOURCE")
 	if dsn == "" {
-		dsn = "host=db port=5432 user=user password=password dbname=todo sslmode=disable"
+		dsn = "host=db_test port=5432 user=test_user password=test_password dbname=todo_test sslmode=disable"
 	}
 
 	db, err := sql.Open("postgres", dsn)
