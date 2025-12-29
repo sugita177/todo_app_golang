@@ -49,6 +49,19 @@ function App() {
     }
   }
 
+  const handleDeleteTodo = async (id: number) => {
+    try {
+      const response = await fetch(`http://localhost:8080/todos/${id}`, {
+        method: 'DELETE',
+      })
+      if (response.ok) {
+        await fetchTodos() // 再取得してリストを更新
+      }
+    } catch (error) {
+      console.error('削除失敗:', error)
+    }
+  }
+
   return (
     <div style={{ padding: '20px', maxWidth: '400px', margin: '0 auto' }}>
       <h1>My TODO List</h1>
@@ -59,7 +72,7 @@ function App() {
       {/* リスト表示（TodoItemをループ回す） */}
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {todos.map((todo) => (
-          <TodoItem key={todo.id} todo={todo} />
+          <TodoItem key={todo.id} todo={todo} onDelete={handleDeleteTodo}/>
         ))}
       </ul>
       
