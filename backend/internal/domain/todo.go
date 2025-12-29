@@ -18,6 +18,7 @@ type Todo struct {
 type TodoRepository interface {
 	Create(ctx context.Context, todo *Todo) error
 	FetchAll(ctx context.Context) ([]*Todo, error)
+	Delete(ctx context.Context, id int) error
 }
 
 var (
