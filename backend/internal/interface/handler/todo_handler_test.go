@@ -7,53 +7,82 @@ import (
 	"net/http/httptest"
 	"testing"
 	"todo_app_golang/internal/domain"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-// モック用の構造体を定義
+// testify/mock スタイルに統一
 type mockTodoUseCase struct {
-	// テスト中に「エラーを発生させたい」などの制御ができるようにフィールドを持たせることが多い
-	err error
+	mock.Mock
 }
 
-// Interface を満たすようにメソッドを実装
 func (m *mockTodoUseCase) CreateTodo(ctx context.Context, title string) error {
-	return m.err // 設定したエラーを返す（成功時は nil）
+	args := m.Called(ctx, title)
+	return args.Error(0)
 }
 
 func (m *mockTodoUseCase) GetAllTodos(ctx context.Context) ([]*domain.Todo, error) {
-	return nil, m.err
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Todo), args.Error(1)
 }
 
+func (m *mockTodoUseCase) DeleteTodo(ctx context.Context, id int) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+// --- テストケース ---
+
 func TestTodoHandler_CreateTodoHandler_Mock(t *testing.T) {
-	// モックを生成（エラーなしの成功パターン）
-	mockUC := &mockTodoUseCase{err: nil}
+	mockUC := new(mockTodoUseCase)
 	h := NewTodoHandler(mockUC)
+
+	// 設定: CreateTodo が呼ばれたら nil (成功) を返す
+	mockUC.On("CreateTodo", mock.Anything, "Mockテストタスク").Return(nil)
 
 	jsonBody := []byte(`{"title": "Mockテストタスク"}`)
 	req := httptest.NewRequest(http.MethodPost, "/todos", bytes.NewBuffer(jsonBody))
 	rr := httptest.NewRecorder()
 
-	// 実行
 	h.CreateTodoHandler(rr, req)
 
-	// 検証
-	if rr.Code != http.StatusCreated {
-		t.Errorf("expected 201, got %v", rr.Code)
-	}
+	assert.Equal(t, http.StatusCreated, rr.Code)
+	mockUC.AssertExpectations(t)
 }
 
 func TestTodoHandler_CreateTodoHandler_Error(t *testing.T) {
-	// あえてエラーを返すモックを作成
-	mockUC := &mockTodoUseCase{err: context.DeadlineExceeded}
+	mockUC := new(mockTodoUseCase)
 	h := NewTodoHandler(mockUC)
+
+	// 設定: エラーを返すようにする
+	mockUC.On("CreateTodo", mock.Anything, "test").Return(context.DeadlineExceeded)
 
 	req := httptest.NewRequest(http.MethodPost, "/todos", bytes.NewBuffer([]byte(`{"title":"test"}`)))
 	rr := httptest.NewRecorder()
 
 	h.CreateTodoHandler(rr, req)
 
-	// UseCaseがエラーを返した時、ハンドラーが 500 を返すかテスト
-	if rr.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500, got %v", rr.Code)
-	}
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+}
+
+func TestTodoHandler_DeleteTodoHandler(t *testing.T) {
+	mockUC := new(mockTodoUseCase)
+	handler := NewTodoHandler(mockUC)
+
+	// ID:1 の削除リクエスト
+	req := httptest.NewRequest(http.MethodDelete, "/todos/1", nil)
+	req.SetPathValue("id", "1") // Go 1.22+ パラメータ
+	w := httptest.NewRecorder()
+
+	// 期待値設定: ID 1 が渡されたら成功を返す
+	mockUC.On("DeleteTodo", mock.Anything, 1).Return(nil)
+
+	handler.DeleteTodoHandler(w, req)
+
+	assert.Equal(t, http.StatusNoContent, w.Code)
+	mockUC.AssertExpectations(t)
 }

@@ -30,6 +30,7 @@ func main() {
 	// インターフェース層のメソッドを紐付け
 	mux.HandleFunc("POST /todos", todoHandler.CreateTodoHandler)
 	mux.HandleFunc("GET /todos", todoHandler.GetAllTodosHandler)
+	mux.HandleFunc("DELETE /todos/{id}", todoHandler.DeleteTodoHandler)
 
 	// CORS 設定
 	c := cors.New(cors.Options{

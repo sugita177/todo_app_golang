@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"todo_app_golang/internal/domain"
 )
 
@@ -11,6 +12,7 @@ import (
 type TodoUseCaseInterface interface {
 	CreateTodo(ctx context.Context, title string) error
 	GetAllTodos(ctx context.Context) ([]*domain.Todo, error)
+	DeleteTodo(ctx context.Context, id int) error
 }
 
 type TodoHandler struct {
@@ -53,4 +55,21 @@ func (h *TodoHandler) GetAllTodosHandler(w http.ResponseWriter, r *http.Request)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(todos)
+}
+
+func (h *TodoHandler) DeleteTodoHandler(w http.ResponseWriter, r *http.Request) {
+	// リクエストから Context を取得する
+	ctx := r.Context()
+	idStr := r.PathValue("id") // URLパラメータ {id} を取得
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.useCase.DeleteTodo(ctx, id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
