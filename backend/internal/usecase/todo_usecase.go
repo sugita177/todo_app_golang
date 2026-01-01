@@ -29,3 +29,7 @@ func (u *TodoUseCase) GetAllTodos(ctx context.Context) ([]*domain.Todo, error) {
 func (u *TodoUseCase) DeleteTodo(ctx context.Context, id int) error {
 	return u.repo.Delete(ctx, id)
 }
+
+func (u *TodoUseCase) UpdateTodoStatus(ctx context.Context, id int, isCompleted bool) error {
+	return u.repo.UpdateStatus(ctx, id, isCompleted)
+}

@@ -33,6 +33,11 @@ func (m *MockTodoRepository) Delete(ctx context.Context, id int) error {
 	return args.Error(0)
 }
 
+func (m *MockTodoRepository) UpdateStatus(ctx context.Context, id int, isCompleted bool) error {
+	args := m.Called(ctx, id, isCompleted)
+	return args.Error(0)
+}
+
 func TestCreateTodo(t *testing.T) {
 	mockRepo := new(MockTodoRepository)
 	uc := NewTodoUseCase(mockRepo)
@@ -106,4 +111,25 @@ func TestDeleteTodo(t *testing.T) {
 
 	assert.NoError(t, err)
 	mockRepo.AssertExpectations(t) // 実際に呼ばれたかチェック
+}
+
+func TestUpdateTodoStatus(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("成功：完了状態を更新できること", func(t *testing.T) {
+		mockRepo := new(MockTodoRepository)
+		useCase := NewTodoUseCase(mockRepo)
+		targetID := 10
+		nextStatus := true
+
+		// 期待値設定
+		mockRepo.On("UpdateStatus", ctx, targetID, nextStatus).Return(nil)
+
+		// 実行
+		err := useCase.UpdateTodoStatus(ctx, targetID, nextStatus)
+
+		// 検証
+		assert.NoError(t, err)
+		mockRepo.AssertExpectations(t)
+	})
 }
