@@ -35,6 +35,11 @@ func (m *mockTodoUseCase) DeleteTodo(ctx context.Context, id int) error {
 	return args.Error(0)
 }
 
+func (m *mockTodoUseCase) UpdateTodoStatus(ctx context.Context, id int, isCompleted bool) error {
+	args := m.Called(ctx, id, isCompleted)
+	return args.Error(0)
+}
+
 // --- テストケース ---
 
 func TestTodoHandler_CreateTodoHandler_Mock(t *testing.T) {
@@ -85,4 +90,50 @@ func TestTodoHandler_DeleteTodoHandler(t *testing.T) {
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
 	mockUC.AssertExpectations(t)
+}
+
+func TestTodoHandler_UpdateTodoStatusHandler(t *testing.T) {
+	t.Run("成功：ステータスを更新できること", func(t *testing.T) {
+		mockUC := new(mockTodoUseCase)
+		h := NewTodoHandler(mockUC)
+
+		// テストデータ
+		targetID := 5
+		nextStatus := true
+
+		// ボディの作成
+		jsonBody := []byte(`{"is_completed": true}`)
+		req := httptest.NewRequest(http.MethodPatch, "/todos/5", bytes.NewBuffer(jsonBody))
+
+		// Go 1.22+ のパスパラメータをシミュレート
+		req.SetPathValue("id", "5")
+
+		rr := httptest.NewRecorder()
+
+		// 期待値設定: ID=5, Status=true で呼ばれることを期待
+		mockUC.On("UpdateTodoStatus", mock.Anything, targetID, nextStatus).Return(nil)
+
+		// 実行
+		h.UpdateTodoStatusHandler(rr, req)
+
+		// 検証
+		assert.Equal(t, http.StatusNoContent, rr.Code)
+		mockUC.AssertExpectations(t)
+	})
+
+	t.Run("失敗：不正なJSONボディの場合に400を返すこと", func(t *testing.T) {
+		mockUC := new(mockTodoUseCase)
+		h := NewTodoHandler(mockUC)
+
+		// 壊れたJSONを送る
+		req := httptest.NewRequest(http.MethodPatch, "/todos/5", bytes.NewBuffer([]byte(`{invalid-json}`)))
+		req.SetPathValue("id", "5")
+		rr := httptest.NewRecorder()
+
+		// 実行
+		h.UpdateTodoStatusHandler(rr, req)
+
+		// 検証
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+	})
 }
