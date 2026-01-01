@@ -50,3 +50,24 @@ func (r *postgresTodoRepository) Delete(ctx context.Context, id int) error {
 	_, err := r.db.ExecContext(ctx, query, id) // Exec ではなく ExecContext を使うのがベスト
 	return err
 }
+
+func (r *postgresTodoRepository) UpdateStatus(ctx context.Context, id int, isCompleted bool) error {
+	query := `UPDATE todos SET is_completed = $1 WHERE id = $2`
+
+	// ExecContext を使用してクエリを実行
+	result, err := r.db.ExecContext(ctx, query, isCompleted, id)
+	if err != nil {
+		return err
+	}
+
+	// 念のため、更新された行数を確認（存在しないIDが指定された場合のケア）
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows // 1行も更新されなかったらエラーとする
+	}
+
+	return nil
+}

@@ -143,3 +143,37 @@ func TestTodoRepository_Delete(t *testing.T) {
 	db.QueryRow("SELECT count(*) FROM todos WHERE id = $1", id).Scan(&count)
 	assert.Equal(t, 0, count)
 }
+
+func TestTodoRepository_UpdateStatus(t *testing.T) {
+	dsn := os.Getenv("TEST_DB_SOURCE")
+	if dsn == "" {
+		dsn = "host=db port=5432 user=user password=password dbname=todo sslmode=disable"
+	}
+	db, _ := sql.Open("postgres", dsn)
+	defer db.Close()
+
+	repo := NewTodoRepository(db)
+	ctx := context.Background()
+
+	// 1. テストデータの準備（未完了のタスクを作成）
+	var id int
+	err := db.QueryRow("INSERT INTO todos (title, is_completed, created_at) VALUES ($1, $2, $3) RETURNING id",
+		"Update Test Task", false, time.Now()).Scan(&id)
+	assert.NoError(t, err)
+
+	// 2. 実行：未完了(false)から完了(true)に更新
+	err = repo.UpdateStatus(ctx, id, true)
+	assert.NoError(t, err)
+
+	// 3. 検証：DBの値が true になっているか確認
+	var isCompleted bool
+	err = db.QueryRow("SELECT is_completed FROM todos WHERE id = $1", id).Scan(&isCompleted)
+	assert.NoError(t, err)
+	assert.True(t, isCompleted)
+
+	// 4. 実行：再度 false に戻せるか確認
+	err = repo.UpdateStatus(ctx, id, false)
+	assert.NoError(t, err)
+	db.QueryRow("SELECT is_completed FROM todos WHERE id = $1", id).Scan(&isCompleted)
+	assert.False(t, isCompleted)
+}
