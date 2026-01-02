@@ -6,6 +6,11 @@ services:
       - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d todo"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   db_test:
     image: postgres:15-alpine
@@ -43,6 +48,16 @@ services:
       - /app/node_modules # node_modulesはホスト側と同期させない（高速化・エラー防止）
     environment:
       - VITE_API_URL=http://localhost:8080
+
+  migrate:
+    image: migrate/migrate
+    volumes:
+      - ./backend/migrations:/migrations
+    entrypoint: ["migrate", "-path", "/migrations/", "-database", "postgres://user:password@db:5432/todo?sslmode=disable"]
+    command: ["up"]
+    depends_on:
+      db:
+        condition: service_healthy # DBが完全に起動してから実行
 
 volumes:
   db-data:
