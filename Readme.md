@@ -67,7 +67,7 @@ npm test
 
 ## 📝 今後の実装予定
 
-- [ ] TODOの削除機能 (DELETE API)
-- [ ] TODOの完了状態の切り替え機能 (PATCH/PUT API)
+- [x] TODOの削除機能 (DELETE API)
+- [x] TODOの完了状態の切り替え機能 (PATCH/PUT API)
 - [ ] Tailwind CSSによるUI/UXの改善
 - [ ] GitHub ActionsによるCI/CDの構築
