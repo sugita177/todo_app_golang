@@ -36,7 +36,7 @@ func main() {
 	// CORS 設定
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"http://localhost:5173"}, // フロントエンドのURLを許可
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedMethods: []string{"GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{"Content-Type", "Authorization"},
 	})
 
