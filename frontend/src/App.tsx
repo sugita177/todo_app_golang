@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { TodoInput } from './components/TodoInput'
 import { TodoItem } from './components/TodoItem'
+import { updateTodoStatus } from './api/todo'
 
 // 型定義（別のファイルに切り出してもOK）
 interface Todo {
@@ -62,6 +63,20 @@ function App() {
     }
   }
 
+  const handleToggleTodo = async (id: number, currentStatus: boolean) => {
+    try {
+      // 1. APIを叩いてDBを更新（現在の状態を反転させて送る）
+      await updateTodoStatus(id, !currentStatus);
+
+      // 2. 画面上の表示を更新（ステートの更新）
+      setTodos(prev =>
+        prev.map(t => (t.id === id ? { ...t, is_completed: !currentStatus } : t))
+      );
+    } catch (error) {
+      alert('更新に失敗しました');
+    }
+  };
+
   return (
     <div style={{ padding: '20px', maxWidth: '400px', margin: '0 auto' }}>
       <h1>My TODO List</h1>
@@ -72,7 +87,7 @@ function App() {
       {/* リスト表示（TodoItemをループ回す） */}
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {todos.map((todo) => (
-          <TodoItem key={todo.id} todo={todo} onDelete={handleDeleteTodo}/>
+          <TodoItem key={todo.id} todo={todo} onDelete={handleDeleteTodo} onToggle={handleToggleTodo}/>
         ))}
       </ul>
       
