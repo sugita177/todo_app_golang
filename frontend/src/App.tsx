@@ -66,20 +66,28 @@ function App() {
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '400px', margin: '0 auto' }}>
-      <h1>My TODO List</h1>
-      
-      {/* 入力コンポーネントに作成関数を渡す */}
-      <TodoInput onAdd={handleCreateTodo} />
-
-      {/* リスト表示（TodoItemをループ回す） */}
-      <ul style={{ listStyle: 'none', padding: 0 }}>
-        {todos.map((todo) => (
-          <TodoItem key={todo.id} todo={todo} onDelete={handleDeleteTodo} onToggle={handleToggleTodo}/>
-        ))}
-      </ul>
-      
-      {todos.length === 0 && <p>タスクがありません。追加してみましょう！</p>}
+    <div className="min-h-screen bg-gray-50 py-10 px-4">
+      <div className="max-w-md mx-auto">
+        <h1 className="text-3xl font-bold text-gray-800 mb-8 text-center">
+          My TODO List
+        </h1>
+        
+        <div className="bg-white p-6 rounded-2xl shadow-xl">
+          {/* 入力コンポーネントに作成関数を渡す */}
+          <TodoInput onAdd={handleCreateTodo} />
+    
+          {/* リスト表示（TodoItemをループ回す） */}
+          <ul className="space-y-3">
+            {todos.map((todo) => (
+              <TodoItem key={todo.id} todo={todo} onDelete={handleDeleteTodo} onToggle={handleToggleTodo}/>
+            ))}
+          </ul>
+          
+          {todos.length === 0 && (
+            <p className="text-center text-gray-500 mt-6">タスクがありません。追加してみましょう！</p>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
