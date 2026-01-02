@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { TodoInput } from './components/TodoInput'
 import { TodoItem } from './components/TodoItem'
-import { updateTodoStatus } from './api/todo'
+import { fetchTodos as apiFetchTodos, updateTodoStatus, createTodo, deleteTodo } from './api/todo'
 
 // 型定義（別のファイルに切り出してもOK）
 interface Todo {
@@ -14,68 +14,56 @@ interface Todo {
 function App() {
   const [todos, setTodos] = useState<Todo[]>([])
 
-  // APIからTODO一覧を取得する関数
-  const fetchTodos = useCallback(async () => {
+  // 一覧取得：apiFetchTodos を使用
+  const loadTodos = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8080/todos')
-      if (!response.ok) throw new Error('Network response was not ok')
-      const data = await response.json()
+      const data = await apiFetchTodos()
       setTodos(data || [])
     } catch (error) {
       console.error('取得失敗:', error)
     }
   }, [])
 
-  // 初回レンダリング時に実行
   useEffect(() => {
-    fetchTodos()
-  }, [fetchTodos])
+    loadTodos()
+  }, [loadTodos])
 
-  // 新規TODOを作成する関数（TodoInputに渡す）
+  // 作成：createTodo を使用
   const handleCreateTodo = async (title: string) => {
     try {
-      const response = await fetch('http://localhost:8080/todos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title }),
-      })
-
-      if (response.ok) {
-        await fetchTodos() // リストを更新
-      } else {
-        alert('作成に失敗しました')
-      }
+      await createTodo(title)
+      await loadTodos() // リストを再取得
     } catch (error) {
       console.error('作成失敗:', error)
+      alert('作成に失敗しました')
     }
   }
 
+  // 削除：deleteTodo を使用
   const handleDeleteTodo = async (id: number) => {
     try {
-      const response = await fetch(`http://localhost:8080/todos/${id}`, {
-        method: 'DELETE',
-      })
-      if (response.ok) {
-        await fetchTodos() // 再取得してリストを更新
-      }
+      await deleteTodo(id)
+      // 再取得せず、フロントのステートから直接消すと動作が軽快になります
+      setTodos(prev => prev.filter(t => t.id !== id))
     } catch (error) {
       console.error('削除失敗:', error)
     }
   }
 
+  // 更新：updateTodoStatus を使用
   const handleToggleTodo = async (id: number, currentStatus: boolean) => {
     try {
-      // 1. APIを叩いてDBを更新（現在の状態を反転させて送る）
-      await updateTodoStatus(id, !currentStatus);
+      const nextStatus = !currentStatus
+      await updateTodoStatus(id, nextStatus)
 
-      // 2. 画面上の表示を更新（ステートの更新）
+      // 画面上の表示を更新
       setTodos(prev =>
-        prev.map(t => (t.id === id ? { ...t, is_completed: !currentStatus } : t))
-      );
+        prev.map(t => (t.id === id ? { ...t, is_completed: nextStatus } : t))
+      )
     } catch (error) {
-      alert('更新に失敗しました');
+      alert('更新に失敗しました')
     }
-  };
+  }
 
   return (
     <div style={{ padding: '20px', maxWidth: '400px', margin: '0 auto' }}>
