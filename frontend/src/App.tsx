@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { TodoInput } from './components/TodoInput'
 import { TodoItem } from './components/TodoItem'
+import { TodoFilter } from './components/TodoFilter'
+import { type FilterType } from './types/todo'
 import { fetchTodos as apiFetchTodos, updateTodoStatus, createTodo, deleteTodo } from './api/todo'
 
 // 型定義（別のファイルに切り出してもOK）
@@ -13,6 +15,13 @@ interface Todo {
 
 function App() {
   const [todos, setTodos] = useState<Todo[]>([])
+  const [filter, setFilter] = useState<FilterType>('all')
+
+  const filteredTodos = todos.filter((todo) => {
+    if (filter === 'active') return !todo.is_completed;
+    if (filter === 'completed') return todo.is_completed;
+    return true; // 'all' の場合はすべて返す
+  })
 
   // 一覧取得：apiFetchTodos を使用
   const loadTodos = useCallback(async () => {
@@ -75,10 +84,16 @@ function App() {
         <div className="bg-white p-6 rounded-2xl shadow-xl">
           {/* 入力コンポーネントに作成関数を渡す */}
           <TodoInput onAdd={handleCreateTodo} />
+
+          {/* 表示するtodoのフィルター */}
+          <TodoFilter 
+            currentFilter={filter} 
+            onFilterChange={setFilter} 
+          />
     
-          {/* リスト表示（TodoItemをループ回す） */}
-          <ul className="space-y-3">
-            {todos.map((todo) => (
+          {/* リスト表示（TodoItemループを回す） */}
+          <ul className="space-y-2">
+            {filteredTodos.map(todo => (
               <TodoItem key={todo.id} todo={todo} onDelete={handleDeleteTodo} onToggle={handleToggleTodo}/>
             ))}
           </ul>
