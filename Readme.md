@@ -69,5 +69,9 @@ npm test
 
 - [x] TODOの削除機能 (DELETE API)
 - [x] TODOの完了状態の切り替え機能 (PATCH/PUT API)
-- [ ] Tailwind CSSによるUI/UXの改善
+- [x] Tailwind CSSによるUI/UXの改善
+- [ ] 詳細画面の追加
+- [ ] ログイン機能の追加
+- [ ] todo優先順位とそれをマウス操作で並び替える機能の追加
+- [ ] ガントチャート画面の追加
 - [ ] GitHub ActionsによるCI/CDの構築
