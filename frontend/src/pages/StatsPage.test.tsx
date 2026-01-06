@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach,afterEach } from 'vitest';
 import { StatsPage } from './StatsPage';
 import { useTodos } from './../contexts/TodoContext';
 
@@ -11,15 +11,30 @@ vi.mock('./../contexts/TodoContext', () => ({
 describe('StatsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers(); // 仮想タイマーを有効にする
   });
 
-  it('読み込み中のときは「読み込み中...」が表示されること', () => {
+  afterEach(() => {
+    vi.useRealTimers(); // タイマーをリセットする
+  });
+
+  it('読み込み中のときは「読み込み中...」が表示されること', async () => {
     (useTodos as any).mockReturnValue({
       todos: [],
       loading: true,
     });
 
     render(<StatsPage />);
+
+    // 最初は LoadingDelay によって表示されていない
+    expect(screen.queryByText('読み込み中...')).not.toBeInTheDocument();
+
+    // 時間を 300ms 進める
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+    // 時間経過後に表示されていることを確認
     expect(screen.getByText('読み込み中...')).toBeInTheDocument();
   });
 

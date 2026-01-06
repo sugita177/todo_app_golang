@@ -1,9 +1,16 @@
 import { useTodos } from '../contexts/TodoContext';
+import { LoadingDelay } from '../components/LoadingDelay';
 
 export const StatsPage = () => {
   const { todos, loading } = useTodos();
 
-  if (loading) return <div className="text-center py-10">読み込み中...</div>;
+  if (loading) {
+    return (
+      <LoadingDelay delay={300}>
+        <div className="text-center py-10 text-slate-400">読み込み中...</div>
+      </LoadingDelay>
+    );
+  }
 
   const totalCount = todos.length;
   const completedCount = todos.filter(t => t.is_completed).length;

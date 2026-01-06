@@ -2,6 +2,7 @@ import { useSearchParams } from 'react-router-dom';
 import { TodoInput } from '../components/TodoInput';
 import { TodoItem } from '../components/TodoItem';
 import { TodoFilter } from '../components/TodoFilter';
+import { LoadingDelay } from '../components/LoadingDelay';
 import { type FilterType } from '../types/todo';
 import { useTodos } from '../contexts/TodoContext';
 
@@ -17,7 +18,13 @@ export const TodoListPage = () => {
     return true;
   });
 
-  if (loading) return <div className="text-center py-10">読み込み中...</div>;
+  if (loading) {
+    return (
+      <LoadingDelay delay={300}>
+        <div className="text-center py-10 text-slate-400">読み込み中...</div>
+      </LoadingDelay>
+    );
+  }
 
   return (
     <div className="max-w-md mx-auto">

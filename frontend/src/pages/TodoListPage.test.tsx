@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TodoListPage } from './TodoListPage';
 import { useTodos } from './../contexts/TodoContext';
 
@@ -25,6 +25,11 @@ describe('TodoListPage', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+  vi.useFakeTimers(); // 追加
+  });
+
+  afterEach(() => {
+    vi.useRealTimers(); // 追加
   });
 
   it('読み込み中のときは「読み込み中...」が表示されること', () => {
@@ -39,6 +44,11 @@ describe('TodoListPage', () => {
         <TodoListPage />
       </MemoryRouter>
     );
+
+    // 時間を 300ms 進める
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
 
     expect(screen.getByText('読み込み中...')).toBeInTheDocument();
   });
