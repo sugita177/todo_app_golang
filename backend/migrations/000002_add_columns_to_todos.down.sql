@@ -1,0 +1,6 @@
+-- 追加したカラムと制約の削除
+ALTER TABLE todos DROP CONSTRAINT IF EXISTS chk_priority;
+ALTER TABLE todos DROP COLUMN IF EXISTS description;
+ALTER TABLE todos DROP COLUMN IF EXISTS priority;
+ALTER TABLE todos DROP COLUMN IF EXISTS due_date;
+ALTER TABLE todos DROP COLUMN IF EXISTS updated_at;
