@@ -33,3 +33,7 @@ func (u *TodoUseCase) DeleteTodo(ctx context.Context, id int) error {
 func (u *TodoUseCase) UpdateTodoStatus(ctx context.Context, id int, isCompleted bool) error {
 	return u.repo.UpdateStatus(ctx, id, isCompleted)
 }
+
+func (u *TodoUseCase) GetTodoByID(id int) (*domain.Todo, error) {
+	return u.repo.GetByID(id)
+}

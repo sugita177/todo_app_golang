@@ -71,3 +71,16 @@ func (r *postgresTodoRepository) UpdateStatus(ctx context.Context, id int, isCom
 
 	return nil
 }
+
+func (r *postgresTodoRepository) GetByID(id int) (*domain.Todo, error) {
+	var todo domain.Todo
+	query := "SELECT id, title, description, is_completed, priority, due_date, created_at FROM todos WHERE id = ?"
+	err := r.db.QueryRow(query, id).Scan(
+		&todo.ID, &todo.Title, &todo.Description, &todo.IsCompleted,
+		&todo.Priority, &todo.DueDate, &todo.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &todo, nil
+}

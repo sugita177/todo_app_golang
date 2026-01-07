@@ -14,6 +14,7 @@ type TodoUseCaseInterface interface {
 	GetAllTodos(ctx context.Context) ([]*domain.Todo, error)
 	DeleteTodo(ctx context.Context, id int) error
 	UpdateTodoStatus(ctx context.Context, id int, isCompleted bool) error
+	GetTodoByID(id int) (*domain.Todo, error)
 }
 
 type TodoHandler struct {
@@ -102,4 +103,23 @@ func (h *TodoHandler) UpdateTodoStatusHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *TodoHandler) GetTodoByIDHandler(w http.ResponseWriter, r *http.Request) {
+	// パスパラメータからIDを取得
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	todo, err := h.useCase.GetTodoByID(id)
+	if err != nil {
+		http.Error(w, "Todo not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(todo)
 }
