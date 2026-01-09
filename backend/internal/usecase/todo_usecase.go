@@ -34,6 +34,6 @@ func (u *TodoUseCase) UpdateTodoStatus(ctx context.Context, id int, isCompleted 
 	return u.repo.UpdateStatus(ctx, id, isCompleted)
 }
 
-func (u *TodoUseCase) GetTodoByID(id int) (*domain.Todo, error) {
-	return u.repo.GetByID(id)
+func (u *TodoUseCase) GetTodoByID(ctx context.Context, id int) (*domain.Todo, error) {
+	return u.repo.GetByID(ctx, id)
 }

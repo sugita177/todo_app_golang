@@ -16,18 +16,21 @@ func NewTodoRepository(db *sql.DB) domain.TodoRepository {
 }
 
 func (r *postgresTodoRepository) Create(ctx context.Context, todo *domain.Todo) error {
-	query := `INSERT INTO todos (title, is_completed, created_at) VALUES ($1, $2, $3) RETURNING id`
+	// $1~$5 を使用し、RETURNING で ID と時間情報を取得
+	query := `
+		INSERT INTO todos (title, description, is_completed, priority, due_date, created_at) 
+		VALUES ($1, $2, $3, $4, $5, $6) 
+		RETURNING id`
 
-	// $1, $2, $3 に値を流し込み、生成された ID を取得する
-	err := r.db.QueryRowContext(ctx, query, todo.Title, todo.IsCompleted, todo.CreatedAt).Scan(&todo.ID)
-	if err != nil {
-		return err
-	}
-	return nil
+	err := r.db.QueryRowContext(ctx, query,
+		todo.Title, todo.Description, todo.IsCompleted, todo.Priority, todo.DueDate, todo.CreatedAt,
+	).Scan(&todo.ID)
+
+	return err
 }
 
 func (r *postgresTodoRepository) FetchAll(ctx context.Context) ([]*domain.Todo, error) {
-	query := `SELECT id, title, is_completed, created_at FROM todos`
+	query := `SELECT id, title, description, is_completed, priority, due_date, created_at FROM todos ORDER BY created_at DESC`
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
@@ -37,7 +40,9 @@ func (r *postgresTodoRepository) FetchAll(ctx context.Context) ([]*domain.Todo, 
 	var todos []*domain.Todo
 	for rows.Next() {
 		t := &domain.Todo{}
-		if err := rows.Scan(&t.ID, &t.Title, &t.IsCompleted, &t.CreatedAt); err != nil {
+		// Scanの順序をSELECTと合わせる
+		err := rows.Scan(&t.ID, &t.Title, &t.Description, &t.IsCompleted, &t.Priority, &t.DueDate, &t.CreatedAt)
+		if err != nil {
 			return nil, err
 		}
 		todos = append(todos, t)
@@ -72,15 +77,35 @@ func (r *postgresTodoRepository) UpdateStatus(ctx context.Context, id int, isCom
 	return nil
 }
 
-func (r *postgresTodoRepository) GetByID(id int) (*domain.Todo, error) {
-	var todo domain.Todo
-	query := "SELECT id, title, description, is_completed, priority, due_date, created_at FROM todos WHERE id = ?"
-	err := r.db.QueryRow(query, id).Scan(
-		&todo.ID, &todo.Title, &todo.Description, &todo.IsCompleted,
-		&todo.Priority, &todo.DueDate, &todo.CreatedAt,
+func (r *postgresTodoRepository) GetByID(ctx context.Context, id int) (*domain.Todo, error) {
+	t := &domain.Todo{}
+	query := `SELECT id, title, description, is_completed, priority, due_date, created_at FROM todos WHERE id = $1`
+
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
+		&t.ID, &t.Title, &t.Description, &t.IsCompleted, &t.Priority, &t.DueDate, &t.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
-	return &todo, nil
+	return t, nil
+}
+
+func (r *postgresTodoRepository) Update(ctx context.Context, todo *domain.Todo) error {
+	query := `
+		UPDATE todos 
+		SET title = $1, description = $2, is_completed = $3, priority = $4, due_date = $5 
+		WHERE id = $6`
+
+	result, err := r.db.ExecContext(ctx, query,
+		todo.Title, todo.Description, todo.IsCompleted, todo.Priority, todo.DueDate, todo.ID,
+	)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil || rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }

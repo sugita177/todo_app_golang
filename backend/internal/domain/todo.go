@@ -24,7 +24,8 @@ type TodoRepository interface {
 	FetchAll(ctx context.Context) ([]*Todo, error)
 	Delete(ctx context.Context, id int) error
 	UpdateStatus(ctx context.Context, id int, isCompleted bool) error
-	GetByID(id int) (*Todo, error)
+	GetByID(ctx context.Context, id int) (*Todo, error)
+	Update(ctx context.Context, todo *Todo) error
 }
 
 var (
