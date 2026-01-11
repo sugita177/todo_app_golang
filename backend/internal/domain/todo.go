@@ -28,8 +28,10 @@ type TodoRepository interface {
 	Update(ctx context.Context, todo *Todo) error
 }
 
+// カスタムエラーの定義
 var (
-	ErrTitleEmpty = errors.New("タイトルを入力してください")
+	ErrTitleEmpty   = errors.New("タイトルを入力してください")
+	ErrTodoNotFound = errors.New("指定されたタスクが見つかりません")
 )
 
 // NewTodo は新しいTodoを生成する際のビジネスルールを適用します

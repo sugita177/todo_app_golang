@@ -218,6 +218,6 @@ func TestTodoRepository_GetByID(t *testing.T) {
 	t.Run("存在しないIDを指定した場合、エラーが返ること", func(t *testing.T) {
 		_, err := repo.GetByID(ctx, 99999)
 		assert.Error(t, err)
-		assert.Equal(t, sql.ErrNoRows, err)
+		assert.Equal(t, domain.ErrTodoNotFound, err)
 	})
 }

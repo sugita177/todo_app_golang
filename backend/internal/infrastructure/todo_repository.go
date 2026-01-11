@@ -85,6 +85,10 @@ func (r *postgresTodoRepository) GetByID(ctx context.Context, id int) (*domain.T
 		&t.ID, &t.Title, &t.Description, &t.IsCompleted, &t.Priority, &t.DueDate, &t.CreatedAt,
 	)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			// DB固有のエラーをドメインエラーに変換して返す
+			return nil, domain.ErrTodoNotFound
+		}
 		return nil, err
 	}
 	return t, nil
