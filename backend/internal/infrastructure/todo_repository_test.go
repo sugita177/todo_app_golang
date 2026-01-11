@@ -3,57 +3,78 @@ package infrastructure
 import (
 	"context"
 	"database/sql"
+	"log"
 	"os"
 	"testing"
 	"time"
 	"todo_app_golang/internal/domain"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq" // Postgresドライバ
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPostgresTodoRepository_Create(t *testing.T) {
-	// 開発用(DB_SOURCE)ではなく、テスト用(TEST_DB_SOURCE)を取得
+// グローバル変数として保持し、各テストで共有する
+var testDB *sql.DB
+
+func TestMain(m *testing.M) {
+	// 1. 環境変数の取得
 	dsn := os.Getenv("TEST_DB_SOURCE")
 	if dsn == "" {
-		t.Skip("TEST_DB_SOURCE が設定されていないためテストをスキップします")
+		log.Println("TEST_DB_SOURCE is not set, skipping infrastructure tests")
+		return
 	}
 
-	// db.go 内の sql.Open を、このテスト用DSNで実行するようにする
-	// ※ NewDB() が os.Getenv("DB_SOURCE") を直接見ている場合は、
-	// 以下のように一時的に環境変数を上書きするか、NewDBを引数付きにするのが一般的です。
-
-	originalDSN := os.Getenv("DB_SOURCE")
-	os.Setenv("DB_SOURCE", dsn)               // 一時的に差し替え
-	defer os.Setenv("DB_SOURCE", originalDSN) // テスト後に戻す
-
-	db, err := NewDB()
+	// 2. マイグレーションの実行
+	// /app/migrations は Docker環境内のパスに合わせて調整してください
+	migration, err := migrate.New("file:///app/migrations", dsn)
 	if err != nil {
-		t.Fatalf("テスト用DB接続失敗: %v", err)
+		log.Fatalf("Could not create migrate instance: %v", err)
 	}
-	defer db.Close()
 
-	// テスト開始前にテーブルを確実に用意する（存在しなければ作成）
-	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS todos (
-	    id SERIAL PRIMARY KEY, 
-	    title TEXT NOT NULL, 
-	    description TEXT,              -- 追加
-	    is_completed BOOLEAN NOT NULL, 
-	    priority VARCHAR(10),          -- 追加
-	    due_date TIMESTAMP WITH TIME ZONE, -- 追加
-	    created_at TIMESTAMP WITH TIME ZONE NOT NULL
-	);`)
+	// テスト開始前にクリーンな状態にするため一度DownしてからUp
+	migration.Down()
+	if err := migration.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Fatalf("Could not run up migrations: %v", err)
+	}
+
+	// 3. DB接続の確立
+	testDB, err = sql.Open("postgres", dsn)
 	if err != nil {
-		t.Fatalf("テーブル作成失敗: %v", err)
+		log.Fatalf("Could not connect to test database: %v", err)
 	}
 
-	repo := NewTodoRepository(db)
+	// 4. 全てのテストを実行
+	code := m.Run()
+
+	// 5. 後片付け
+	testDB.Close()
+	os.Exit(code)
+}
+
+// ヘルパー関数: テストごとにクリーンなリポジトリを提供する
+func setupRepository(t *testing.T) domain.TodoRepository {
+	// テストごとにデータを消去したい場合はここで DELETE する
+	_, err := testDB.Exec("DELETE FROM todos")
+	if err != nil {
+		t.Fatalf("Failed to clean table: %v", err)
+	}
+	return NewTodoRepository(testDB)
+}
+
+func TestPostgresTodoRepository_Create(t *testing.T) {
+	repo := setupRepository(t)
 	ctx := context.Background()
 
 	// 3. テストデータの準備
 	todo := &domain.Todo{
 		Title:       "テストタスク",
+		Description: "テストタスク詳細",
 		IsCompleted: false,
+		Priority:    "high",
+		DueDate:     &time.Time{},
 		CreatedAt:   time.Now(),
 	}
 
@@ -72,30 +93,30 @@ func TestPostgresTodoRepository_Create(t *testing.T) {
 	// 5. 後片付け（重要！）
 	// テストで作ったデータを削除して、DBを元の状態に戻す
 	t.Cleanup(func() {
-		db.Exec("DELETE FROM todos WHERE id = $1", todo.ID)
+		testDB.Exec("DELETE FROM todos WHERE id = $1", todo.ID)
 	})
 }
 
 func TestTodoRepository_FetchAll(t *testing.T) {
-	dsn := os.Getenv("TEST_DB_SOURCE")
-	if dsn == "" {
-		dsn = "host=db_test port=5432 user=test_user password=test_password dbname=todo_test sslmode=disable"
-	}
-	db, _ := sql.Open("postgres", dsn)
-	defer db.Close()
-
-	repo := NewTodoRepository(db)
+	repo := setupRepository(t)
 	ctx := context.Background()
 
 	// 1. テスト前にデータをクリア（他のテストの影響を排除）
-	_, err := db.Exec("DELETE FROM todos")
+	_, err := testDB.Exec("DELETE FROM todos")
 	assert.NoError(t, err)
 
 	// 2. テストデータを2件入れる（エラーを必ずチェックする）
 	// 必須カラム（created_at等）がある場合はそれも指定する
-	_, err = db.Exec(`INSERT INTO todos (title, description, is_completed, priority, due_date, created_at) 
+	_, err = testDB.Exec(`INSERT INTO todos (title, description, is_completed, priority, due_date, created_at) 
 	    VALUES ($1, $2, $3, $4, $5, $6)`,
 		"Task 1", "Desc 1", false, "high", time.Now(), time.Now(),
+	)
+	if err != nil {
+		t.Fatalf("テストデータの作成に失敗しました: %v", err)
+	}
+
+	_, err = testDB.Exec(`INSERT INTO todos (title, description, is_completed, priority, due_date, created_at) 
+	    VALUES ($1, $2, $3, $4, $5, $6)`,
 		"Task 2", "Desc 2", true, "low", time.Now(), time.Now(),
 	)
 	if err != nil {
@@ -109,28 +130,18 @@ func TestTodoRepository_FetchAll(t *testing.T) {
 	assert.NoError(t, err)
 	// 具体的な件数でチェックするのがベストです
 	assert.Equal(t, 2, len(todos), "取得されたタスク数が一致しません")
-	assert.Equal(t, "Task 1", todos[0].Title)
+	// created_at の降順で取得される
+	assert.Equal(t, "Task 2", todos[0].Title)
+	assert.Equal(t, "Task 1", todos[1].Title)
 }
 
 func TestTodoRepository_Delete(t *testing.T) {
-	// DSNを環境変数から取得するようにしておくと安全です
-	dsn := os.Getenv("TEST_DB_SOURCE")
-	if dsn == "" {
-		dsn = "host=db_test port=5432 user=test_user password=test_password dbname=todo_test sslmode=disable"
-	}
-
-	db, err := sql.Open("postgres", dsn)
-	if err != nil {
-		t.Fatalf("DB接続失敗: %v", err)
-	}
-	defer db.Close()
-
-	repo := NewTodoRepository(db)
+	repo := setupRepository(t)
 	ctx := context.Background()
 
 	// テストデータの準備
 	var id int
-	err = db.QueryRow(`INSERT INTO todos (title, description, is_completed, priority, due_date, created_at)
+	err := testDB.QueryRow(`INSERT INTO todos (title, description, is_completed, priority, due_date, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
 		"Test Delete", "Desc Delete", false, "high", time.Now(), time.Now()).Scan(&id)
 	if err != nil {
@@ -145,24 +156,17 @@ func TestTodoRepository_Delete(t *testing.T) {
 
 	// DBから消えているか確認
 	var count int
-	db.QueryRow("SELECT count(*) FROM todos WHERE id = $1", id).Scan(&count)
+	testDB.QueryRow("SELECT count(*) FROM todos WHERE id = $1", id).Scan(&count)
 	assert.Equal(t, 0, count)
 }
 
 func TestTodoRepository_UpdateStatus(t *testing.T) {
-	dsn := os.Getenv("TEST_DB_SOURCE")
-	if dsn == "" {
-		dsn = "host=db port=5432 user=user password=password dbname=todo sslmode=disable"
-	}
-	db, _ := sql.Open("postgres", dsn)
-	defer db.Close()
-
-	repo := NewTodoRepository(db)
+	repo := setupRepository(t)
 	ctx := context.Background()
 
 	// 1. テストデータの準備（未完了のタスクを作成）
 	var id int
-	err := db.QueryRow(`INSERT INTO todos (title, description, is_completed, priority, due_date, created_at)
+	err := testDB.QueryRow(`INSERT INTO todos (title, description, is_completed, priority, due_date, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
 		"Update Test Task", "Desc Update", false, "high", time.Now(), time.Now()).Scan(&id)
 	assert.NoError(t, err)
@@ -173,29 +177,25 @@ func TestTodoRepository_UpdateStatus(t *testing.T) {
 
 	// 3. 検証：DBの値が true になっているか確認
 	var isCompleted bool
-	err = db.QueryRow("SELECT is_completed FROM todos WHERE id = $1", id).Scan(&isCompleted)
+	err = testDB.QueryRow("SELECT is_completed FROM todos WHERE id = $1", id).Scan(&isCompleted)
 	assert.NoError(t, err)
 	assert.True(t, isCompleted)
 
 	// 4. 実行：再度 false に戻せるか確認
 	err = repo.UpdateStatus(ctx, id, false)
 	assert.NoError(t, err)
-	db.QueryRow("SELECT is_completed FROM todos WHERE id = $1", id).Scan(&isCompleted)
+	testDB.QueryRow("SELECT is_completed FROM todos WHERE id = $1", id).Scan(&isCompleted)
 	assert.False(t, isCompleted)
 }
 
 func TestTodoRepository_GetByID(t *testing.T) {
-	dsn := os.Getenv("TEST_DB_SOURCE")
-	db, _ := sql.Open("postgres", dsn)
-	defer db.Close()
-
-	repo := NewTodoRepository(db)
+	repo := setupRepository(t)
 	ctx := context.Background()
 
 	// 1. テストデータの準備
 	dueDate := time.Now().Add(24 * time.Hour).Truncate(time.Microsecond)
 	var id int
-	err := db.QueryRow(`
+	err := testDB.QueryRow(`
         INSERT INTO todos (title, description, is_completed, priority, due_date, created_at) 
         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
 		"Detail Test", "Description here", true, "low", dueDate, time.Now(),
