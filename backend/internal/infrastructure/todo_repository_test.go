@@ -35,11 +35,14 @@ func TestPostgresTodoRepository_Create(t *testing.T) {
 
 	// テスト開始前にテーブルを確実に用意する（存在しなければ作成）
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS todos (
-        id SERIAL PRIMARY KEY, 
-        title TEXT NOT NULL, 
-        is_completed BOOLEAN NOT NULL, 
-        created_at TIMESTAMP NOT NULL
-    );`)
+	    id SERIAL PRIMARY KEY, 
+	    title TEXT NOT NULL, 
+	    description TEXT,              -- 追加
+	    is_completed BOOLEAN NOT NULL, 
+	    priority VARCHAR(10),          -- 追加
+	    due_date TIMESTAMP WITH TIME ZONE, -- 追加
+	    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+	);`)
 	if err != nil {
 		t.Fatalf("テーブル作成失敗: %v", err)
 	}
@@ -90,9 +93,10 @@ func TestTodoRepository_FetchAll(t *testing.T) {
 
 	// 2. テストデータを2件入れる（エラーを必ずチェックする）
 	// 必須カラム（created_at等）がある場合はそれも指定する
-	_, err = db.Exec("INSERT INTO todos (title, is_completed, created_at) VALUES ($1, $2, $3), ($4, $5, $6)",
-		"Task 1", false, time.Now(),
-		"Task 2", true, time.Now(),
+	_, err = db.Exec(`INSERT INTO todos (title, description, is_completed, priority, due_date, created_at) 
+	    VALUES ($1, $2, $3, $4, $5, $6)`,
+		"Task 1", "Desc 1", false, "high", time.Now(), time.Now(),
+		"Task 2", "Desc 2", true, "low", time.Now(), time.Now(),
 	)
 	if err != nil {
 		t.Fatalf("テストデータの作成に失敗しました: %v", err)
@@ -126,8 +130,9 @@ func TestTodoRepository_Delete(t *testing.T) {
 
 	// テストデータの準備
 	var id int
-	err = db.QueryRow("INSERT INTO todos (title, is_completed, created_at) VALUES ($1, $2, $3) RETURNING id",
-		"Test Delete", false, time.Now()).Scan(&id)
+	err = db.QueryRow(`INSERT INTO todos (title, description, is_completed, priority, due_date, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+		"Test Delete", "Desc Delete", false, "high", time.Now(), time.Now()).Scan(&id)
 	if err != nil {
 		t.Fatalf("テストデータ作成失敗: %v", err)
 	}
@@ -157,8 +162,9 @@ func TestTodoRepository_UpdateStatus(t *testing.T) {
 
 	// 1. テストデータの準備（未完了のタスクを作成）
 	var id int
-	err := db.QueryRow("INSERT INTO todos (title, is_completed, created_at) VALUES ($1, $2, $3) RETURNING id",
-		"Update Test Task", false, time.Now()).Scan(&id)
+	err := db.QueryRow(`INSERT INTO todos (title, description, is_completed, priority, due_date, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+		"Update Test Task", "Desc Update", false, "high", time.Now(), time.Now()).Scan(&id)
 	assert.NoError(t, err)
 
 	// 2. 実行：未完了(false)から完了(true)に更新
@@ -176,4 +182,42 @@ func TestTodoRepository_UpdateStatus(t *testing.T) {
 	assert.NoError(t, err)
 	db.QueryRow("SELECT is_completed FROM todos WHERE id = $1", id).Scan(&isCompleted)
 	assert.False(t, isCompleted)
+}
+
+func TestTodoRepository_GetByID(t *testing.T) {
+	dsn := os.Getenv("TEST_DB_SOURCE")
+	db, _ := sql.Open("postgres", dsn)
+	defer db.Close()
+
+	repo := NewTodoRepository(db)
+	ctx := context.Background()
+
+	// 1. テストデータの準備
+	dueDate := time.Now().Add(24 * time.Hour).Truncate(time.Microsecond)
+	var id int
+	err := db.QueryRow(`
+        INSERT INTO todos (title, description, is_completed, priority, due_date, created_at) 
+        VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+		"Detail Test", "Description here", true, "low", dueDate, time.Now(),
+	).Scan(&id)
+	assert.NoError(t, err)
+
+	t.Run("存在するIDを指定した場合、全てのフィールドが取得できること", func(t *testing.T) {
+		todo, err := repo.GetByID(ctx, id)
+
+		assert.NoError(t, err)
+		assert.Equal(t, id, todo.ID)
+		assert.Equal(t, "Detail Test", todo.Title)
+		assert.Equal(t, "Description here", todo.Description)
+		assert.Equal(t, "low", todo.Priority)
+		assert.True(t, todo.IsCompleted)
+		// Timeの比較は .Equal を使用（タイムゾーンの差異を許容）
+		assert.True(t, dueDate.Equal(*todo.DueDate))
+	})
+
+	t.Run("存在しないIDを指定した場合、エラーが返ること", func(t *testing.T) {
+		_, err := repo.GetByID(ctx, 99999)
+		assert.Error(t, err)
+		assert.Equal(t, sql.ErrNoRows, err)
+	})
 }
