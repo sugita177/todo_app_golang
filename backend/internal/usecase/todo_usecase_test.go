@@ -38,6 +38,19 @@ func (m *MockTodoRepository) UpdateStatus(ctx context.Context, id int, isComplet
 	return args.Error(0)
 }
 
+func (m *MockTodoRepository) GetByID(ctx context.Context, id int) (*domain.Todo, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Todo), args.Error(1)
+}
+
+func (m *MockTodoRepository) Update(ctx context.Context, todo *domain.Todo) error {
+	args := m.Called(ctx, todo)
+	return args.Error(0)
+}
+
 func TestCreateTodo(t *testing.T) {
 	mockRepo := new(MockTodoRepository)
 	uc := NewTodoUseCase(mockRepo)
@@ -130,6 +143,43 @@ func TestUpdateTodoStatus(t *testing.T) {
 
 		// 検証
 		assert.NoError(t, err)
+		mockRepo.AssertExpectations(t)
+	})
+}
+
+func TestGetTodoByID(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("成功：指定したIDのタスクが取得できること", func(t *testing.T) {
+		mockRepo := new(MockTodoRepository)
+		useCase := NewTodoUseCase(mockRepo)
+		targetID := 1
+		expectedTodo := &domain.Todo{
+			ID:       targetID,
+			Title:    "テストタスク",
+			Priority: "high",
+		}
+
+		mockRepo.On("GetByID", ctx, targetID).Return(expectedTodo, nil)
+
+		todo, err := useCase.GetTodoByID(ctx, targetID)
+
+		assert.NoError(t, err)
+		assert.Equal(t, expectedTodo, todo)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("失敗：タスクが見つからない場合", func(t *testing.T) {
+		mockRepo := new(MockTodoRepository)
+		useCase := NewTodoUseCase(mockRepo)
+		targetID := 99
+
+		mockRepo.On("GetByID", ctx, targetID).Return(nil, domain.ErrTodoNotFound)
+
+		todo, err := useCase.GetTodoByID(ctx, targetID)
+
+		assert.Error(t, err)
+		assert.Nil(t, todo)
 		mockRepo.AssertExpectations(t)
 	})
 }
